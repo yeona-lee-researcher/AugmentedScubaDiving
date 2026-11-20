@@ -58,8 +58,8 @@ public static class Team15SceneAssetCheck // 게임에 붙이지 않고 메뉴�
         CheckModel("Team15/FriendlyFish/BlueTang"); // 실행 때 읽는 파란 물고기 모델과 메시를 검사합니다.
         CheckModel("Team15/FriendlyFish/BabyReefShark"); // 실행 때 읽는 상어 모델과 메시를 검사합니다.
         CheckModel("Team15/Treasure/GoldCache"); // 실행 때 읽는 보물 모델과 메시를 검사합니다.
-        Debug.Log("Team15 수영 컴포넌트: 전체 " + swimmers + ", 활성 " + activeSwimmers + ". 배포 Scene의 참고 수는 57개입니다."); // 개수는 참고 정보이며 실제 수영 성공을 뜻하지 않습니다.
-        if (swimmers != 57) Debug.LogWarning("Team15: 수영 컴포넌트 수가 배포 Scene의 57개와 다릅니다. 프리팹 누락 또는 직접 수정한 구성을 확인하세요."); // 의도적인 Scene 수정도 가능하므로 개수 차이만으로 실패 처리하지 않습니다.
+        Debug.Log("Team15 수영 컴포넌트: 전체 " + swimmers + ", 활성 " + activeSwimmers + ". 최적화 Scene: 동물 16 + 잠수부 3 = 활성 19개."); // 꺼 둔 38마리도 전체 수에는 포함되므로 활성 수와 구분합니다.
+        Require(activeSwimmers == 19, "최적화 Scene의 활성 CreatureSwim은 동물 16 + 잠수부 3 = 19개여야 합니다.", null); // 요청한 수량에 맞는 실행 구성인지 확인하며 실제 프레임 속도를 보증하지 않습니다.
         if (errors == 0) Debug.Log("Team15 PASS - ASSET LINKS ONLY. 에셋 연결 검사만 통과했습니다. Android 빌드, 실제 수영, 소리, Quest 화면은 별도로 확인하세요."); // 통과의 범위를 에셋 연결로 명확하게 제한합니다.
         else Debug.LogError("Team15 ASSET LINKS FAILED: " + errors + "개. 위 오류를 눌러 연결이 빠진 대상을 확인하세요. Scene은 수정하거나 저장하지 않았습니다."); // 오류 수와 다음 행동을 알려 줍니다.
     } // 한 번의 검사를 마칩니다.

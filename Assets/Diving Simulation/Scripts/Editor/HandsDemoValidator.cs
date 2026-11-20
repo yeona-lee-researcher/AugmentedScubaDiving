@@ -176,7 +176,8 @@ namespace HciHands.EditorTools // 게임 코드와 이름이 겹치지 않는 Ed
             {
                 if (item == null || !item.isActiveAndEnabled) continue; // inactive로 보관한 원본은 오류가 아닙니다.
                 string type = item.GetType().Name; // 활성 클래스 이름입니다.
-                bool oldMovement = type == "ThumbsUpAscend" || type == "StrokeZone" || InheritsNamed(item.GetType(), "LocomotionProvider"); // 별도로 rig를 움직이는 옛 경로입니다.
+                bool oldMovement = type == "ThumbsUpAscend" || InheritsNamed(item.GetType(), "LocomotionProvider"); // StrokeZone는 몸을 직접 움직이지 않고 SimpleMovement에 입력만 보내므로 중복 이동에서 제외합니다.
+                if (type == "StrokeZone") RequireRefs(item, "targetHandCollider", "movement"); // 복원한 수영 입력 영역에는 지정 손 충돌체와 단일 이동기 연결이 필요합니다.
                 if (oldMovement) Check(false, "Disable duplicate movement component: " + type, item); // SimpleMovement 이외 이동을 보고합니다.
                 if (type == "XRInputModalityManager") Check(false, "XRInputModalityManager can re-enable controllers; keep it disabled.", item); // controller 자동 복귀를 막습니다.
                 if (type == "MudPinchNavigator") Check(false, "Legacy MudPinchNavigator must stay disabled.", item); // 별도 pinch 선택 이벤트를 막습니다.

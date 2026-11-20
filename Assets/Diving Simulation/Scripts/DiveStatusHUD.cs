@@ -4,10 +4,10 @@ using UnityEngine.UI; // 화면의 막대와 글자를 갱신한다.
 public class DiveStatusHUD : MonoBehaviour // 항상 보이는 산소·배터리·수심·잠수 시간을 한 곳에서 표시한다.
 {
     public InformationManager information; // 산소, 배터리, 머리 높이의 원본 값은 이 관리자에게서 읽는다.
-    public Image oxygenFill; // 파란 산소 막대의 채워진 부분이다.
-    public Image batteryFill; // 연두 또는 주황 배터리 막대의 채워진 부분이다.
-    public Text oxygenPercent; // 산소 잔량 숫자다.
-    public Text batteryPercent; // 배터리 잔량 숫자다.
+    public Image oxygenFill; // 파란 산소 막대의 채워진 부분 
+    public Image batteryFill; // 연두 또는 주황 배터리 막대의 채워진 부분 
+    public Text oxygenPercent; // 산소 잔량 숫자 
+    public Text batteryPercent; // 배터리 잔량 숫자 
     public Text depthText; // 배터리 오른쪽에 표시하는 실제 머리 수심이다.
     public Text diveTimeText; // 물속에서만 표시하는 잠수 시간이다.
     public Text lowBatteryWarning; // 낮은 배터리를 글자로도 알려 준다.

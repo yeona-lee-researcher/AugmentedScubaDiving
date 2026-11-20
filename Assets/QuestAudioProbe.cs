@@ -4,7 +4,7 @@ using UnityEngine; // Unity의 오브젝트, 소리, 로그 기능을 사용해�
 
 public sealed class QuestAudioProbe : MonoBehaviour // 헤드셋의 두 소리 재생 경로를 비교하는 임시 검사예요.
 { // 검사 클래스의 시작이에요.
-#if UNITY_ANDROID && !UNITY_EDITOR // Android 앱에만 검사 기능을 넣고, 컴퓨터의 Play에서는 실행하지 않아요.
+#if UNITY_ANDROID && !UNITY_EDITOR && SCUBA_AUDIO_PROBE // 이 진단 심볼을 직접 추가한 Android 빌드에서만 비프음을 설치합니다. 기본 제출 빌드에서는 제외합니다.
     private AudioSource unitySource; // Unity 경로로 검사음을 재생할 전용 스피커예요.
     private AudioClip unityClip; // 코드로 만든 짧은 검사음을 보관해요.
     private AndroidJavaObject androidTone; // Android 경로로 검사음을 재생할 객체예요.

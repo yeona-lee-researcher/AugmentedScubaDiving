@@ -71,7 +71,9 @@ public class InformationManager : MonoBehaviour // class는 기능을 묶는 설
     
     private void BatteryUpdate () // 한 프레임 동안 배터리가 얼마나 변했는지 계산하는 내부 함수다.
     { // BatteryUpdate에서 이 실행 범위를 연다.
-        currentBatteryLevel = Mathf.Clamp(currentBatteryLevel + batteryConsumptionRate * Time.deltaTime, 0f, batteryLevelMax); // 초당 변화율에 이번 프레임의 초를 곱해 더하고 Clamp로 0부터 최대량 사이에 제한한다. 수심 조건은 없다.
+        currentBatteryLevel = Mathf.Clamp(currentBatteryLevel + batteryConsumptionRate * Time.deltaTime, 0f, batteryLevelMax); 
+        // 초당 변화율에 이번 프레임의 초를 곱해 더하고 Clamp로 0부터 최대량 사이에 제한한다. 수심 조건은 없다.
+        // o2 should not be -3 or 102 for now 
 
         if (currentBatteryLevel <= 0.1f) // if는 조건부 실행이고 <=는 이하 비교다. 배터리가 0.1 이하이면 다음 한 문장을 실행한다.
             GameOverBattery(); // 괄호는 함수 호출이다. 배터리 고갈 처리로 플레이 위치와 두 자원을 초기화한다.

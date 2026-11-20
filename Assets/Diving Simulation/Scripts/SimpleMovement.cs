@@ -6,6 +6,7 @@
  * 물에서는 손을 놓으면 초당 2cm씩 천천히 가라앉고, 엄지를 위로 유지하면 머리가 수면 위 35cm까지 올라옵니다.
  * 시선 전진만으로는 수면 15cm 아래까지만 올라옵니다. 얼굴을 내밀고 수면을 유지하려면 오른손 엄지 위가 필요합니다.
  * 물 밖에서는 시선을 위로 들어도 수평으로 걷고, 발밑에 바닥이 없으면 내려와 수면에서 낙하를 멈춥니다.
+ * 양손으로 각각 앞쪽 좌우 영역을 0.5초 안에 통과하면 0.5초 동안 완만한 전진을 추가합니다. 몸의 Move 호출은 여전히 한 번입니다.
  * PC: WASD 이동, 오른쪽 마우스를 누르고 시점 회전, E/U 상승, Q/J 하강(물속과 수면에서).
  */
 using UnityEngine; // 위치, 회전, CharacterController를 사용합니다.
@@ -26,6 +27,19 @@ public class SimpleMovement : MonoBehaviour // 원본 클래스 이름과 script
     [SerializeField] float idleSinkSpeed = 0.02f; // 상승 명령이 없을 때의 느린 침강 속도입니다. 0.02m는 2cm입니다.
     [SerializeField] float surfaceHeadClearance = 0.35f; // 엄지 위를 유지하면 머리를 수면보다 35cm 위까지 올려 얼굴을 물 밖으로 내밉니다.
     [SerializeField] float mouseSensitivity = 0.12f; // 마우스 1픽셀을 몇 도로 바꿀지 정합니다.
+
+    [Header("Two-hand swim stroke")] // Inspector에 복원한 양손 수영 설정을 모읍니다.
+    [SerializeField] bool enableSwimStroke = true; // 끄면 주먹 전진과 엄지 수영만 사용합니다.
+    [SerializeField] float strokeWindow = 0.5f; // 두 손이 각 영역에 들어오는 시각 차이의 최대값(초)입니다.
+    [SerializeField] float strokeDistance = 0.8f; // 충돌과 다른 입력이 없을 때 한 번 젓기로 의도하는 거리(m)입니다.
+    [SerializeField] float strokeDuration = 0.5f; // 이 시간에 걸쳐 거리를 나눠 이동하므로 순간이동하지 않습니다.
+    [SerializeField] float strokeCooldown = 0.6f; // 새 젓기를 다시 받을 때까지의 최소 간격(초)입니다.
+
+    float lastLeftStrokeTime = float.NegativeInfinity; // 아직 왼손 젓기를 받지 않았다는 뜻의 시작값입니다.
+    float lastRightStrokeTime = float.NegativeInfinity; // 오른손도 첫 이벤트를 기다립니다.
+    float nextStrokeTime; // 다음 젓기를 시작할 수 있는 게임 시각입니다.
+    float strokeRemaining; // 지금 진행 중인 젓기의 남은 시간(초)입니다.
+    Vector3 strokeDirection; // 젓기를 시작했을 때 바라본 방향을 고정해 둡니다.
 
     CharacterController cc; // 충돌을 처리하며 rig를 움직일 유일한 컴포넌트입니다.
     TrackedPoseDriver headPoseDriver; // VR에서는 머리 추적, PC에서는 마우스 시점을 사용합니다.
@@ -94,11 +108,13 @@ public class SimpleMovement : MonoBehaviour // 원본 클래스 이름과 script
         if (appPaused || !Application.isFocused) // 시스템 메뉴나 다른 창으로 나가면 이동을 중단합니다.
         { // 일시정지 중에는 지난 낙하 속도를 보관하지 않습니다.
             fallSpeed = 0f; // 재개할 때 지난 낙하 속도를 갑자기 이어받지 않습니다.
+            ClearStroke(); // 정지 전의 손젓기와 남은 추진도 버립니다.
             return; // 이 프레임에는 손 입력도 침강도 적용하지 않습니다.
         } // 앱의 일시정지 상태 확인을 마칩니다.
         if (!cc || !cc.enabled || !handsInput || !handsInput.isActiveAndEnabled) // 입력이나 충돌이 꺼졌는지 확인합니다.
         { // 필요한 컴포넌트가 준비되지 않았으면 이번 이동을 건너뜁니다.
             fallSpeed = 0f; // 이동을 다시 켤 때도 중립 속도에서 시작합니다.
+            ClearStroke(); // 입력이나 몸통이 꺼졌으면 진행 중인 젓기도 취소합니다.
             return; // 몸통이나 손 입력 없이 이동하지 않습니다.
         } // 이동에 필요한 컴포넌트 확인을 마칩니다.
         bool handsMode = handsInput.UseHandInput; // 손 추적 상실 때문에 PC 모드로 바꾸지는 않습니다.
@@ -128,6 +144,9 @@ public class SimpleMovement : MonoBehaviour // 원본 클래스 이름과 script
             velocity = ReadKeyboardMovement(forwardDirection); // WASD도 손과 같은 물속/육지 전진 방향을 사용합니다.
             if (swimming) vertical = ReadKeyboardVertical(); // E/U 상승과 Q/J 하강을 얼굴이 나온 수면에서도 사용할 수 있습니다.
         } // 이번 프레임의 키보드 입력 읽기를 마칩니다.
+        if (handsMode && swimming && CanUseStroke()) // 양손 추적과 UI 상태가 모두 허용할 때만 젓기를 이어갑니다.
+            velocity += ReadStrokeVelocity(Time.deltaTime); // 원본처럼 별도 Move를 하지 않고 이번 프레임의 속도에 합칩니다.
+        else ClearStroke(); // 추적 상실·UI 선택·PC 모드·육지에서는 남은 추진을 버립니다.
         if (swimming) // 수영과 물 밖의 낙하를 같은 프레임에 함께 적용하지 않습니다.
         { // 물속 또는 몸이 물에 남은 수면 수영을 계산합니다.
             fallSpeed = 0f; // 물에 들어왔으므로 공중에서 쌓인 낙하 속도를 버립니다.
@@ -202,21 +221,54 @@ public class SimpleMovement : MonoBehaviour // 원본 클래스 이름과 script
         return (up ? 1f : 0f) - (down ? 1f : 0f); // 위와 아래를 동시에 누르면 서로 상쇄됩니다.
     } // 키보드의 수직 입력 계산을 마칩니다.
 
-    public void NotifyStroke(HandSide side) // 원본 StrokeZone.cs의 메서드 연결을 보존합니다.
-    { // 원본에서 호출하던 함수 이름을 유지합니다.
-        // 이번 손 전용 조작에서는 옆구리 stroke를 사용하지 않습니다. Scene의 두 StrokeZone도 비활성화합니다.
-        // 여기서 별도의 Move를 호출하지 않습니다. 전진·엄지 수영·느린 침강은 Update 한 곳에서 계산합니다.
-    } // 사용하지 않는 원본 stroke 연결 함수를 마칩니다.
+    public void NotifyStroke(HandSide side) // 각 StrokeZone가 정확히 연결된 손의 진입을 알려 줍니다.
+    { // 이 함수는 이동을 예약하고 몸을 직접 움직이지 않습니다.
+        if (!isActiveAndEnabled || !CanUseStroke() || !informationManager || !xrCamera) return; // 필수 연결과 유효한 손 입력을 요구합니다.
+        if (informationManager.GetDepth() >= 0f) return; // 새 젓기는 머리가 물속에 있을 때만 시작합니다.
+        float now = Time.time; // 두 손의 진입 간격을 비교할 현재 시각(초)입니다.
+        if (now < nextStrokeTime) return; // 직전 젓기의 대기 시간이 끝나기 전에는 새 입력을 받지 않습니다.
+        if (side == HandSide.Left) lastLeftStrokeTime = now; // 왼손이 들어온 시각을 기록합니다.
+        else lastRightStrokeTime = now; // 오른손이 들어온 시각을 기록합니다.
+        if (Mathf.Abs(lastLeftStrokeTime - lastRightStrokeTime) > Mathf.Max(0f, strokeWindow)) return; // 두 손의 차이가 0.5초보다 크면 다른 손을 더 기다립니다.
+        strokeDirection = xrCamera.forward.normalized; // 현재 시선의 위아래까지 포함한 세계 방향입니다.
+        strokeRemaining = Mathf.Max(0.05f, strokeDuration); // 0으로 나누지 않도록 최소 0.05초를 보장합니다.
+        nextStrokeTime = now + Mathf.Max(strokeRemaining, strokeCooldown); // 진행 중인 젓기가 겹치지 않도록 더 긴 시간을 기다립니다.
+        lastLeftStrokeTime = lastRightStrokeTime = float.NegativeInfinity; // 같은 진입 쌍으로 다시 시작하지 않게 두 기록을 비웁니다.
+    } // 한 번의 양손 젓기 예약을 마칩니다.
+
+    bool CanUseStroke() // 손젓기에 필요한 공통 조건을 한 함수에 모읍니다.
+    { // 추적이 없거나 UI를 누르는 중에는 몸이 갑자기 전진하면 안 됩니다.
+        return enableSwimStroke && !appPaused && Application.isFocused && handsInput && handsInput.isActiveAndEnabled && handsInput.UseHandInput // 유효한 XR 입력 모드만 허용합니다.
+            && handsInput.LeftTracked && handsInput.RightTracked && !handsInput.LeftUIBusy && !handsInput.RightUIBusy; // 양손 모두 추적되고 어느 손도 UI에 쓰이지 않아야 합니다.
+    } // 수영 젓기 입력 허용 여부를 반환합니다.
+
+    Vector3 ReadStrokeVelocity(float frameSeconds) // 남은 추진을 이번 프레임의 평균 속도로 바꿉니다.
+    { // 코루틴 대신 Update의 유일한 Move 계산에 참여합니다.
+        if (strokeRemaining <= 0f || frameSeconds <= 0f) return Vector3.zero; // 진행 중인 젓기가 없으면 추가 속도는 0입니다.
+        float activeSeconds = Mathf.Min(frameSeconds, strokeRemaining); // 마지막 프레임에서는 남은 시간만 사용해 거리 초과를 막습니다.
+        strokeRemaining = Mathf.Max(0f, strokeRemaining - activeSeconds); // 이번 프레임에 사용한 시간을 차감합니다.
+        float metresPerSecond = Mathf.Max(0f, strokeDistance) / Mathf.Max(0.05f, strokeDuration); // 기본 0.8m÷0.5s=1.6m/s입니다.
+        return strokeDirection * metresPerSecond * (activeSeconds / frameSeconds); // 일부 시간만 진행한 마지막 프레임의 평균 속도까지 보정합니다.
+    } // Update가 이 속도에 deltaTime을 곱해 최종 이동 거리를 얻습니다.
+
+    void ClearStroke() // 추적 상실·일시정지·UI 선택 때 과거 젓기를 남기지 않습니다.
+    { // 다시 추적되면 새로운 양손 진입부터 시작해야 합니다.
+        strokeRemaining = 0f; // 남아 있는 추진 시간을 버립니다.
+        lastLeftStrokeTime = lastRightStrokeTime = float.NegativeInfinity; // 과거 한쪽 손 입력도 새 입력과 합치지 않습니다.
+        nextStrokeTime = 0f; // 정상 입력이 돌아오면 새로운 젓기를 받을 수 있습니다.
+    } // 손젓기의 임시 상태 초기화를 마칩니다.
 
     void OnApplicationPause(bool paused) // 시스템 메뉴로 앱이 정지할 때 호출합니다.
     { // 앱의 일시정지 여부를 기록합니다.
         appPaused = paused; // 재개 전까지 Update의 이동을 막습니다.
         fallSpeed = 0f; // 시스템 메뉴를 다녀와도 지난 낙하 속도를 이어받지 않습니다.
+        ClearStroke(); // 시스템 메뉴를 다녀온 뒤 과거 추진을 이어서 적용하지 않습니다.
     } // 앱 일시정지 상태 처리를 마칩니다.
 
     void OnDisable() // 이 이동 스크립트를 껐을 때 호출합니다.
     { // 이동이 꺼질 때 머리 추적 설정을 돌려줍니다.
         fallSpeed = 0f; // 컴포넌트를 다시 켤 때 중립 속도에서 시작합니다.
+        ClearStroke(); // 비활성화된 이동 컴포넌트의 추진과 손 진입 기록도 비웁니다.
         if (headPoseDriver) headPoseDriver.enabled = poseDriverWasEnabled; // 원래 머리 추적 설정을 돌려줍니다.
     } // 이동 컴포넌트 종료 처리를 마칩니다.
 } // SimpleMovement 클래스 정의를 마칩니다.
