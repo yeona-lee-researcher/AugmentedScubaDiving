@@ -5,6 +5,8 @@ The diver gets an AR-style interface on the wrists and in the visor: oxygen and 
 
 Hunt for treasure, swim with turtles and sharks, and light your way through the mud storm like a cave diver.
 
+**Team 15 Grad Power:** Eliza Yang, Hyoyeon Lee (Elina), Francis Gao
+
 Course page: [class wiki](https://hciintro.plopes.org/wiki/doku.php?id=project:vr:start)
 
 ## Status
